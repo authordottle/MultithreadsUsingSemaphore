@@ -13,6 +13,20 @@ int main() {
     ptr->in = 0;
     ptr->out = 0;
 
+    // initialize semaphores
+    if (sem_init(&mutex, 0, 1) == -1) {
+        printf("Initilize semaphore failed\n");
+        exit(-1);
+    }
+    if (sem_init(&empty, 0, BUFFER_SIZE) == -1) {
+        printf("Initilize semaphore failed\n");
+        exit(-1);
+    }
+    if (sem_init(&full, 0, 0) == -1) {
+        printf("Initilize semaphore failed\n");
+        exit(-1);
+    }
+
     // initialize pthread args
     pthread_args *p_args = (pthread_args *) malloc(sizeof(pthread_args));
     p_args->ptr = ptr;
@@ -25,17 +39,29 @@ int main() {
     pthread_attr_t attr;            // set of thread attributes
     pthread_attr_init(&attr);       // get the default attributes
 
-    pthread_t producer_t;
-    pthread_t consumer_t;
+    pthread_t producer_t[PRODUCER_NUM]; // producer thread identifiers
+    pthread_t consumer_t[CONSUMER_NUM]; // consumer thread identifiers
 
     // create producer and consumer threads
-    pthread_create(&producer_t, &attr, producer, p_args);
-    pthread_create(&consumer_t, &attr, consumer, c_args);
+    for (int i = 0; i < PRODUCER_NUM; i++) {
+        pthread_create(&(producer_t[i]), &attr, producer, p_args);
+    } 
+    for (int i = 0; i < CONSUMER_NUM; i++) {
+        pthread_create(&(consumer_t[i]), &attr, consumer, c_args);
+    }
 
     // wait for working threads
-    pthread_join(consumer_t, NULL);
-    pthread_join(producer_t, NULL);
+    for (int i = 0; i < PRODUCER_NUM; i++) {
+        pthread_join(consumer_t[i], NULL);
+    }
+    for (int i = 0; i < CONSUMER_NUM; i++) {
+        pthread_join(producer_t[i], NULL);
+    }
 
+    // destroy semaphores
+    sem_destroy(&mutex);
+    sem_destroy(&empty);
+    sem_destroy(&full);
     // close open files
     fclose(input);
     fclose(output);

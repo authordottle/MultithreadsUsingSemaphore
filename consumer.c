@@ -6,15 +6,33 @@ void *consumer(void *args) {
     FILE *fd = ((pthread_args *) args)->fd;
     item elem;
     
+    static int end = 0;
     // Read data
     while (1) {
-        // buffer is empty
-        while (ptr->in == ptr->out);
-        // get an item from buffer
-        elem = ptr->buffer[ptr->out];
-        printf("%d\t%s", elem.id, elem.data);
-        if (elem.id == -1) break;
-        fprintf(fd, "%s", elem.data);
-        ptr->out = (ptr->out + 1) % BUFFER_SIZE;
+        sem_wait(&full);
+        // acquire lock
+        sem_wait(&mutex);
+
+        if (!end) {
+            // get an item from buffer
+            elem = ptr->buffer[ptr->out];
+            //printf("%d\t%s", elem.id, elem.data);
+            if (elem.id >= 0) {
+                fprintf(fd, "%s", elem.data);
+                ptr->out = (ptr->out + 1) % BUFFER_SIZE;
+            } else {
+                end = 1;
+            }
+        }
+
+        // release lock
+        sem_post(&mutex);
+        // notify producers
+        sem_post(&empty);
+        if (end) {
+            // notify all other consumers
+            //sem_post(&sem_c);
+            break;
+        }
     }
 }
